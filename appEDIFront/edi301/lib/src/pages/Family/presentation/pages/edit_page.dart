@@ -1,7 +1,7 @@
 import 'dart:io'; // Necesario para File()
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
-import 'package:edi301/src/pages/Family/Edit/edit_controller.dart';
+import 'package:edi301/src/pages/Family/presentation/controllers/edit_controller.dart';
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';

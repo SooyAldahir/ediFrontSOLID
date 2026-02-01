@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
-import 'package:edi301/src/pages/Family/chat_family_page.dart';
+import 'package:edi301/src/pages/Family/presentation/pages/chat_family_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
-import 'package:edi301/src/pages/Family/family_controller.dart';
+import 'package:edi301/src/pages/Family/presentation/controllers/family_controller.dart';
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:edi301/src/widgets/family_gallery.dart';
 

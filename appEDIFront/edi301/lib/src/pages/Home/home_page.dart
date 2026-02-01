@@ -4,7 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/src/pages/Home/home_controller.dart';
 import 'package:edi301/src/pages/News/news_page.dart';
-import 'package:edi301/src/pages/Family/familiy_page.dart';
+import 'package:edi301/src/pages/Family/presentation/pages/familiy_page.dart';
 import 'package:edi301/src/pages/Search/search_page.dart';
 import 'package:edi301/src/pages/Perfil/perfil_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
