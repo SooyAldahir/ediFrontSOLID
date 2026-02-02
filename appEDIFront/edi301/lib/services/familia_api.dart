@@ -35,8 +35,8 @@ class FamiliaApi {
       if (hijos != null && hijos.isNotEmpty) 'hijos': hijos,
     };
 
-    final res = await _http.postJson('/api/familias', data: payload);
-    debugPrint('POST /api/familias -> ${res.statusCode} :: ${res.body}');
+    final res = await _http.postJson('/familias', data: payload);
+    debugPrint('POST /familias -> ${res.statusCode} :: ${res.body}');
     if (res.statusCode >= 400) {
       try {
         final decoded = jsonDecode(res.body);
@@ -58,7 +58,7 @@ class FamiliaApi {
   }
 
   Future<List<Map<String, dynamic>>> buscarFamiliasPorNombre(String q) async {
-    final res = await _http.getJson('/api/familias/search', query: {'name': q});
+    final res = await _http.getJson('/familias/search', query: {'name': q});
     if (res.statusCode >= 400) {
       throw Exception('Error ${res.statusCode}: ${res.body}');
     }
@@ -81,7 +81,7 @@ class FamiliaApi {
   Future<Map<String, dynamic>?> getById(int id, {String? authToken}) async {
     try {
       if (authToken == null) {
-        final res = await _http.getJson('/api/familias/$id');
+        final res = await _http.getJson('/familias/$id');
         if (res.statusCode >= 400) {
           throw Exception('Error ${res.statusCode}: ${res.body}');
         }
@@ -90,7 +90,7 @@ class FamiliaApi {
         return null;
       }
 
-      final Uri url = Uri.parse('$_baseUrl/api/familias/$id');
+      final Uri url = Uri.parse('$_baseUrl/familias/$id');
       final request = http.Request('GET', url);
 
       request.headers['Authorization'] = 'Bearer $authToken';
@@ -113,7 +113,7 @@ class FamiliaApi {
   }
 
   Future<Map<String, dynamic>?> getByIdent(int ident) async {
-    final res = await _http.getJson('/api/familias/por-ident/$ident');
+    final res = await _http.getJson('/familias/por-ident/$ident');
     if (res.statusCode >= 400) {
       throw Exception('Error ${res.statusCode}: ${res.body}');
     }
@@ -133,7 +133,7 @@ class FamiliaApi {
       return false;
     }
 
-    final Uri url = Uri.parse('$_baseUrl/api/familias/$familyId/fotos');
+    final Uri url = Uri.parse('$_baseUrl/familias/$familyId/fotos');
     final request = http.MultipartRequest('PATCH', url);
     if (authToken != null) {
       request.headers['Authorization'] = 'Bearer $authToken';
@@ -166,7 +166,7 @@ class FamiliaApi {
     String? authToken,
   }) async {
     try {
-      final Uri url = Uri.parse('$_baseUrl/api/familias/$familyId/descripcion');
+      final Uri url = Uri.parse('$_baseUrl/familias/$familyId/descripcion');
       final request = http.Request('PATCH', url);
       if (authToken != null) {
         request.headers['Authorization'] = 'Bearer $authToken';

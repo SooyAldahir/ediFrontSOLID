@@ -9,7 +9,7 @@ class UsersApi {
 
   Future<List<User>> getCumpleanerosHoy() async {
     try {
-      final res = await _http.getJson('/api/usuarios/cumpleanos');
+      final res = await _http.getJson('/usuarios/cumpleanos');
 
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
@@ -25,7 +25,7 @@ class UsersApi {
   Future<bool> updateFcmToken(int idUsuario, String token) async {
     try {
       final response = await _http.putJson(
-        '/api/usuarios/update-token',
+        '/usuarios/update-token',
         data: {'id_usuario': idUsuario, 'session_token': token},
       );
       return response.statusCode == 200;
@@ -36,7 +36,7 @@ class UsersApi {
   }
 
   Future<void> deleteSoft(int id) async {
-    final res = await _http.deleteJson('/api/users/$id');
+    final res = await _http.deleteJson('/users/$id');
     if (res.statusCode >= 400) {
       throw Exception('No se pudo eliminar: ${res.statusCode} ${res.body}');
     }
@@ -47,7 +47,7 @@ class UsersApi {
     int? numEmpleado,
   }) async {
     final res = await _http.getJson(
-      '/api/users/familias/by-doc/search',
+      '/users/familias/by-doc/search',
       query: {
         if (matricula != null) 'matricula': matricula,
         if (numEmpleado != null) 'numEmpleado': numEmpleado,
@@ -85,7 +85,7 @@ class UsersApi {
       "Contrasena": contrasena,
       "Estado": estado,
     };
-    final res = await _http.postJson('/api/users/register', data: payload);
+    final res = await _http.postJson('/users/register', data: payload);
     if (res.statusCode >= 400) {
       throw Exception('Error ${res.statusCode}: ${res.body}');
     }
@@ -110,7 +110,7 @@ class UsersApi {
       "Contrasena": contrasena,
       "Estado": estado,
     };
-    final r = await _http.postJson('/api/users/register', data: payload);
+    final r = await _http.postJson('/users/register', data: payload);
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }
@@ -120,7 +120,7 @@ class UsersApi {
 
   Future<User> login(String email, String password) async {
     final r = await _http.postJson(
-      '/api/users/login',
+      '/users/login',
       data: {"E_mail": email, "Contrasena": password},
     );
     if (r.statusCode >= 400) {
@@ -141,7 +141,7 @@ class UsersApi {
   }
 
   Future<User> getById(int id) async {
-    final r = await _http.getJson('/api/users/$id');
+    final r = await _http.getJson('/users/$id');
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }
@@ -154,7 +154,7 @@ class UsersApi {
 
   Future<List<User>> search({String? q, String? tipo}) async {
     final r = await _http.getJson(
-      '/api/users',
+      '/users',
       query: {
         if (q != null && q.isNotEmpty) 'q': q,
         if (tipo != null && tipo.isNotEmpty) 'tipo': tipo,
@@ -196,7 +196,7 @@ class UsersApi {
       if (esAdmin != null) "es_Admin": esAdmin,
     };
 
-    final r = await _http.patchJson('/api/users/$id', data: payload);
+    final r = await _http.patchJson('/users/$id', data: payload);
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }

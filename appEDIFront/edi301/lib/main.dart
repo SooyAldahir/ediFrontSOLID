@@ -1,4 +1,12 @@
 import 'dart:io';
+// 👇 1. NUEVOS IMPORTS PARA PROVIDER Y TUS CLASES SOLID
+import 'package:provider/provider.dart';
+import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/src/pages/Family/data/family_repository_impl.dart';
+import 'package:edi301/src/pages/Family/presentation/controllers/family_controller.dart';
+import 'package:edi301/src/pages/Family/presentation/controllers/edit_controller.dart';
+
+// Imports existentes...
 import 'package:edi301/src/pages/Admin/birthdays/birthday_page.dart';
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 import 'package:flutter/material.dart';
@@ -57,15 +65,42 @@ void main() async {
   });
 
   final prefs = await SharedPreferences.getInstance();
-
   final String? userJson = prefs.getString('user');
-
   final String rutaInicial = (userJson != null && userJson.isNotEmpty)
       ? 'home'
       : 'login';
 
   HttpOverrides.global = MyHttpOverrides();
-  runApp(MyApp(initialRoute: rutaInicial));
+
+  // 👇 2. AQUÍ ENVOLVEMOS LA APP CON MULTIPROVIDER
+  runApp(
+    MultiProvider(
+      providers: [
+        // A. Inyectamos la clase de conexión API (Singleton)
+        Provider<ApiHttp>(create: (_) => ApiHttp()),
+
+        // B. Inyectamos el Repositorio (Depende de ApiHttp)
+        ProxyProvider<ApiHttp, FamilyRepositoryImpl>(
+          update: (_, apiHttp, __) => FamilyRepositoryImpl(apiHttp),
+        ),
+
+        // C. Inyectamos el FamilyController (Depende del Repositorio)
+        ChangeNotifierProxyProvider<FamilyRepositoryImpl, FamilyController>(
+          create: (context) =>
+              FamilyController(context.read<FamilyRepositoryImpl>()),
+          update: (_, repo, previous) => previous ?? FamilyController(repo),
+        ),
+
+        // D. Inyectamos el EditFamilyController (Depende del Repositorio)
+        ChangeNotifierProxyProvider<FamilyRepositoryImpl, EditFamilyController>(
+          create: (context) =>
+              EditFamilyController(context.read<FamilyRepositoryImpl>()),
+          update: (_, repo, previous) => previous ?? EditFamilyController(repo),
+        ),
+      ],
+      child: MyApp(initialRoute: rutaInicial),
+    ),
+  );
 }
 
 class MyHttpOverrides extends HttpOverrides {

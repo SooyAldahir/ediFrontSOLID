@@ -53,7 +53,7 @@ class EventosApi {
     int diasAnticipacion = 3,
   }) async {
     try {
-      final String endpoint = id == null ? '/api/agenda' : '/api/agenda/$id';
+      final String endpoint = id == null ? '/agenda' : '/agenda/$id';
       final String method = id == null ? 'POST' : 'PUT';
 
       final Map<String, String> fields = {
@@ -93,7 +93,7 @@ class EventosApi {
 
   Future<List<Evento>> listar() async {
     try {
-      final res = await _http.getJson('/api/agenda');
+      final res = await _http.getJson('/agenda');
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);

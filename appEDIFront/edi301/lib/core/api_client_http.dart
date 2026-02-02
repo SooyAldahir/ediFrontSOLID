@@ -10,12 +10,16 @@ class ApiHttp extends http.BaseClient {
   static final ApiHttp _i = ApiHttp._internal();
   factory ApiHttp() => _i;
 
-  static String get baseUrl {
+  static String get serverUrl {
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:3000';
     }
-    return 'http://localhost:3000';
+    return 'http://localhost:3000'; // O tu IP si usas iPhone físico
   }
+
+  // 2. URL API (Para peticiones JSON)
+  // Esta concatena /api automáticamente
+  static String get baseUrl => '$serverUrl/api';
 
   final http.Client _inner = http.Client();
   final Duration _timeout = const Duration(seconds: 20);

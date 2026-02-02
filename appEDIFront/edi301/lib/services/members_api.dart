@@ -20,7 +20,7 @@ class MembersApi {
       'id_usuario': idUsuario,
       'tipo_miembro': type,
     };
-    final res = await _http.postJson('/api/miembros', data: payload);
+    final res = await _http.postJson('/miembros', data: payload);
     if (res.statusCode >= 400) {
       throw Exception('Error ${res.statusCode}: ${res.body}');
     }
@@ -32,7 +32,7 @@ class MembersApi {
   }) async {
     final payload = {'id_familia': idFamilia, 'id_usuarios': idUsuarios};
 
-    final res = await _http.postJson('/api/miembros/bulk', data: payload);
+    final res = await _http.postJson('/miembros/bulk', data: payload);
 
     if (res.statusCode >= 400) {
       String msg = 'Error ${res.statusCode}: ${res.body}';
@@ -47,7 +47,7 @@ class MembersApi {
   }
 
   Future<void> removeMember(int idMiembro) async {
-    final res = await _http.deleteJson('/api/miembros/$idMiembro');
+    final res = await _http.deleteJson('/miembros/$idMiembro');
 
     if (res.statusCode >= 400) {
       String msg = 'Error ${res.statusCode}: ${res.body}';

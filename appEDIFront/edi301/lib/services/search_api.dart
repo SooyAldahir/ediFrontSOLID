@@ -119,32 +119,23 @@ class SearchApi {
     }
 
     final isNumeric = RegExp(r'^\d+$').hasMatch(q);
-    final alumnosF = _safeGet(
-      '/api/usuarios',
-      query: {'tipo': 'ALUMNO', 'q': q},
-    );
+    final alumnosF = _safeGet('/usuarios', query: {'tipo': 'ALUMNO', 'q': q});
     final empleadosF = _safeGet(
-      '/api/usuarios',
+      '/usuarios',
       query: {'tipo': 'EMPLEADO', 'q': q},
     );
-    final externosF = _safeGet(
-      '/api/usuarios',
-      query: {'tipo': 'EXTERNO', 'q': q},
-    );
+    final externosF = _safeGet('/usuarios', query: {'tipo': 'EXTERNO', 'q': q});
     final familiasByMatF = isNumeric
-        ? _safeGet(
-            '/api/usuarios/familias/by-doc/search',
-            query: {'matricula': q},
-          )
+        ? _safeGet('/usuarios/familias/by-doc/search', query: {'matricula': q})
         : Future.value(const []);
     final familiasByEmpF = isNumeric
         ? _safeGet(
-            '/api/usuarios/familias/by-doc/search',
+            '/usuarios/familias/by-doc/search',
             query: {'numEmpleado': q},
           )
         : Future.value(const []);
     final familiasByNameF = !isNumeric
-        ? _safeGet('/api/familias/search', query: {'name': q})
+        ? _safeGet('/familias/search', query: {'name': q})
         : Future.value(const []);
 
     final resps = await Future.wait<dynamic>([

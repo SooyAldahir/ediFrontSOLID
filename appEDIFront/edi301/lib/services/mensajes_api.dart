@@ -15,7 +15,7 @@ class MensajesApi {
         return [];
       }
 
-      final uri = Uri.parse('$_baseUrl/api/mensajes/familia/$idFamilia');
+      final uri = Uri.parse('$_baseUrl/mensajes/familia/$idFamilia');
 
       final response = await http.get(
         uri,
@@ -46,7 +46,7 @@ class MensajesApi {
         return false;
       }
 
-      final uri = Uri.parse('$_baseUrl/api/mensajes');
+      final uri = Uri.parse('$_baseUrl/mensajes');
 
       final response = await http.post(
         uri,

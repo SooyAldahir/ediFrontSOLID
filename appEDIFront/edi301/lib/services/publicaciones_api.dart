@@ -16,7 +16,7 @@ class PublicacionesApi {
     String tipo = 'POST',
   }) async {
     try {
-      final uri = Uri.parse('${ApiHttp.baseUrl}/api/publicaciones');
+      final uri = Uri.parse('${ApiHttp.baseUrl}/publicaciones');
       final request = http.MultipartRequest('POST', uri);
       final prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('token');
@@ -75,7 +75,7 @@ class PublicacionesApi {
         }
       }
       final url = Uri.parse(
-        '${ApiHttp.baseUrl}/api/publicaciones/familia/$idFamilia/pendientes',
+        '${ApiHttp.baseUrl}/publicaciones/familia/$idFamilia/pendientes',
       );
 
       final headers = {'Content-Type': 'application/json'};
@@ -100,7 +100,7 @@ class PublicacionesApi {
 
   Future<List<dynamic>> getPostsFamilia(int idFamilia) async {
     try {
-      final res = await _http.getJson('/api/publicaciones/familia/$idFamilia');
+      final res = await _http.getJson('/publicaciones/familia/$idFamilia');
       if (res.statusCode == 200) {
         return List<dynamic>.from(jsonDecode(res.body));
       }
@@ -132,7 +132,7 @@ class PublicacionesApi {
         return [];
       }
 
-      final url = Uri.parse('${ApiHttp.baseUrl}/api/publicaciones/mis-posts');
+      final url = Uri.parse('${ApiHttp.baseUrl}/publicaciones/mis-posts');
 
       final res = await http.get(
         url,
@@ -165,9 +165,7 @@ class PublicacionesApi {
         }
       }
 
-      final url = Uri.parse(
-        '${ApiHttp.baseUrl}/api/publicaciones/$idPost/estado',
-      );
+      final url = Uri.parse('${ApiHttp.baseUrl}/publicaciones/$idPost/estado');
 
       final res = await http.put(
         url,
@@ -186,7 +184,7 @@ class PublicacionesApi {
   }
 
   Future<List<dynamic>> getGlobalFeed() async {
-    final response = await _http.getJson('/api/publicaciones/feed/global');
+    final response = await _http.getJson('/publicaciones/feed/global');
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {

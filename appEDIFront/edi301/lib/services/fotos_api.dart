@@ -12,7 +12,7 @@ class FotosApi {
 
   Future<List<dynamic>> getFotosFamilia(int idFamilia) async {
     try {
-      final res = await _http.getJson('/api/fotos/familia/$idFamilia');
+      final res = await _http.getJson('/fotos/familia/$idFamilia');
 
       if (res.statusCode == 200) {
         return List<dynamic>.from(jsonDecode(res.body));
