@@ -116,7 +116,7 @@ class _NewsPageState extends State<NewsPage> {
     });
 
     try {
-      await _http.postJson('/api/publicaciones/$postId/like');
+      await _http.postJson('/publicaciones/$postId/like');
     } catch (e) {
       setState(() {
         _posts[index]['is_liked'] = isLiked ? 1 : 0;
@@ -145,7 +145,7 @@ class _NewsPageState extends State<NewsPage> {
     );
 
     if (confirm == true) {
-      await _http.deleteJson('/api/publicaciones/$postId');
+      await _http.deleteJson('/publicaciones/$postId');
       _loadFeed();
     }
   }
@@ -242,7 +242,7 @@ class _NewsPageState extends State<NewsPage> {
 
     if (confirm == true) {
       try {
-        await _http.deleteJson('/api/agenda/$idEvento');
+        await _http.deleteJson('/agenda/$idEvento');
         _loadFeed();
       } catch (e) {
         ScaffoldMessenger.of(
@@ -626,7 +626,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
   Future<void> _loadComments() async {
     try {
       final res = await widget.http.getJson(
-        '/api/publicaciones/${widget.postId}/comentarios',
+        '/publicaciones/${widget.postId}/comentarios',
       );
       if (mounted) {
         setState(() {
@@ -645,7 +645,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
     _commentCtrl.clear();
     try {
       await widget.http.postJson(
-        '/api/publicaciones/${widget.postId}/comentarios',
+        '/publicaciones/${widget.postId}/comentarios',
         data: {'contenido': text},
       );
       _loadComments();
@@ -675,9 +675,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
     if (confirm == true) {
       try {
-        await widget.http.deleteJson(
-          '/api/publicaciones/comentarios/$commentId',
-        );
+        await widget.http.deleteJson('/publicaciones/comentarios/$commentId');
         _loadComments();
       } catch (e) {
         print("Error al borrar: $e");

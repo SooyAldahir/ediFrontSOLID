@@ -28,7 +28,7 @@ class AgendaDetailPage extends StatelessWidget {
 
     if (confirm == true) {
       try {
-        await api.deleteJson('/api/agenda/${evento.idActividad}');
+        await api.deleteJson('/agenda/${evento.idActividad}');
 
         if (context.mounted) {
           Navigator.pop(context, true);

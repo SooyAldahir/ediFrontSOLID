@@ -1,78 +1,43 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../domain/family_repository.dart';
+import 'package:edi301/src/pages/Family/domain/family_repository.dart';
 
 class EditFamilyController extends ChangeNotifier {
-  final FamilyRepository _repository;
-  final ImagePicker _picker = ImagePicker();
+  final FamilyRepository repository;
 
-  EditFamilyController(this._repository);
+  EditFamilyController(this.repository);
 
-  bool isLoading = false;
-  String? errorMessage;
+  bool _isLoading = false;
+  String? _error;
 
-  final TextEditingController descripcionCtrl = TextEditingController();
-  XFile? profileImage;
-  XFile? coverImage;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  Future<void> init(int familyId) async {
-    isLoading = true;
-    notifyListeners();
-    try {
-      final family = await _repository.getFamilyById(familyId);
-      if (family != null) {
-        descripcionCtrl.text = family.descripcion ?? '';
-      }
-    } catch (e) {
-      errorMessage = "Error cargando datos: $e";
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> pickImage(bool isProfile) async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      if (isProfile)
-        profileImage = picked;
-      else
-        coverImage = picked;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> saveChanges(int familyId) async {
-    if (isLoading) return false;
-    isLoading = true;
+  Future<bool> saveChanges({
+    required int familyId,
+    String? descripcion,
+    File? profileImage,
+    File? coverImage,
+  }) async {
+    _isLoading = true;
+    _error = null;
     notifyListeners();
 
     try {
-      if (descripcionCtrl.text.isNotEmpty) {
-        await _repository.updateDescripcion(
-          familyId,
-          descripcionCtrl.text.trim(),
-        );
-      }
-      if (profileImage != null || coverImage != null) {
-        File? pFile = profileImage != null ? File(profileImage!.path) : null;
-        File? cFile = coverImage != null ? File(coverImage!.path) : null;
-        await _repository.updateFotos(familyId, pFile, cFile);
-      }
+      await repository.updateFamily(
+        familyId: familyId,
+        descripcion: descripcion,
+        profileImage: profileImage,
+        coverImage: coverImage,
+      );
+      _isLoading = false;
+      notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = "Error al guardar: $e";
-      return false;
-    } finally {
-      isLoading = false;
+      _error = e.toString();
+      _isLoading = false;
       notifyListeners();
+      return false;
     }
-  }
-
-  @override
-  void dispose() {
-    descripcionCtrl.dispose();
-    super.dispose();
   }
 }

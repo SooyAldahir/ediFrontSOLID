@@ -1,14 +1,14 @@
 import 'dart:convert';
+import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/src/pages/Chat/chat_page.dart';
+import 'package:edi301/src/pages/Family/presentation/controllers/family_controller.dart';
+import 'package:edi301/src/pages/Family/presentation/pages/chat_family_page.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
-import 'package:edi301/models/family_model.dart'; // Asegúrate de importar tu modelo
+import 'package:edi301/models/family_model.dart';
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:edi301/src/widgets/family_gallery.dart';
-import '../controllers/family_controller.dart';
-import 'chat_family_page.dart';
 
 class FamiliyPage extends StatefulWidget {
   const FamiliyPage({super.key});
@@ -19,66 +19,149 @@ class FamiliyPage extends StatefulWidget {
 
 class _FamilyPageState extends State<FamiliyPage> {
   bool mostrarHijos = true;
+  final FamilyController _controller = FamilyController();
+  late Future<Family?> _familyFuture;
+  String _userRole = '';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final controller = context.read<FamilyController>();
-      controller.loadData();
-      _loadUserRole(controller);
-    });
+    _loadUserRole();
+    _familyFuture = _fetchFamilyData();
   }
 
-  Future<void> _loadUserRole(FamilyController controller) async {
+  void _startChat(int idUsuario, String nombre) async {
+    final idSala = await ChatApi().initPrivateChat(idUsuario);
+    if (idSala != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(idSala: idSala, nombreChat: nombre),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadUserRole() async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
     if (userStr != null) {
       final user = jsonDecode(userStr);
-      controller.setUserRole(user['nombre_rol'] ?? user['rol'] ?? '');
+      setState(() {
+        _userRole = user['nombre_rol'] ?? user['rol'] ?? '';
+      });
+    } else {
+      final role = await _controller.loadUserRole();
+      if (mounted) {
+        setState(() => _userRole = role);
+      }
+    }
+  }
+
+  Future<Family?> _fetchFamilyData() async {
+    try {
+      return await _controller.loadFamily();
+    } catch (e) {
+      print('Error al cargar familia: $e');
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<FamilyController>();
-    final family = controller.family;
-
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+        elevation: 0,
         title: const Text("Mi Familia", style: TextStyle(color: Colors.white)),
       ),
-      floatingActionButton: controller.hasFamily
-          ? FloatingActionButton(
+      floatingActionButton: FutureBuilder<Family?>(
+        future: _familyFuture,
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.data != null) {
+            return FloatingActionButton(
               onPressed: () {
+                final familyData = snapshot.data!;
+                final id = familyData.id ?? 0;
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => ChatFamilyPage(
-                      idFamilia: family!.id!,
-                      nombreFamilia: family.familyName,
+                      idFamilia: id,
+                      nombreFamilia: familyData.familyName,
                     ),
                   ),
                 );
               },
               backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
               child: const Icon(Icons.chat, color: Colors.black),
-            )
-          : null,
+            );
+          }
+          return const SizedBox();
+        },
+      ),
       body: ResponsiveContent(
-        child: Builder(
-          builder: (context) {
-            if (controller.isLoading) {
+        child: FutureBuilder<Family?>(
+          future: _familyFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (controller.errorMessage != null) {
-              return Center(child: Text(controller.errorMessage!));
+            if (snapshot.hasError ||
+                !snapshot.hasData ||
+                snapshot.data == null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(30.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.family_restroom,
+                        size: 80,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        "Sin Asignación Familiar",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "Aún no has sido asignado a ninguna familia en el sistema. Por favor contacta a la administración.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
-            if (!controller.hasFamily) {
-              return const Center(child: Text("Sin Asignación Familiar"));
-            }
+
+            final family = snapshot.data!;
+            final baseUrl = ApiHttp.baseUrl;
+
+            final coverUrl = family.fotoPortadaUrl;
+            final coverImage = (coverUrl != null && coverUrl.isNotEmpty)
+                ? NetworkImage('$baseUrl$coverUrl')
+                : const AssetImage(
+                        'assets/img/familia-extensa-e1591818033557.jpg',
+                      )
+                      as ImageProvider;
+
+            final profileUrl = family.fotoPerfilUrl;
+            final profileImage = (profileUrl != null && profileUrl.isNotEmpty)
+                ? NetworkImage('$baseUrl$profileUrl')
+                : const AssetImage(
+                        'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+                      )
+                      as ImageProvider;
 
             return SingleChildScrollView(
               child: Column(
@@ -87,10 +170,8 @@ class _FamilyPageState extends State<FamiliyPage> {
                   SizedBox(
                     height: 200,
                     child: FamilyWidget(
-                      backgroundImage: _getImageProvider(
-                        family!.fotoPortadaUrl,
-                      ),
-                      circleImage: _getImageProvider(family.fotoPerfilUrl),
+                      backgroundImage: coverImage,
+                      circleImage: profileImage,
                       onTap: () {},
                     ),
                   ),
@@ -111,13 +192,8 @@ class _FamilyPageState extends State<FamiliyPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  if (![
-                    'Hijo',
-                    'HijoEDI',
-                    'ALUMNO',
-                    'Estudiante',
-                  ].contains(controller.userRole))
-                    _buildEditButton(context, family.id!),
+                  if (!['Hijo', 'HijoEDI'].contains(_userRole))
+                    _bottomEditProfile(family.id ?? 0),
 
                   const SizedBox(height: 10),
                   _buildToggleButtons(),
@@ -126,7 +202,10 @@ class _FamilyPageState extends State<FamiliyPage> {
                   mostrarHijos
                       ? Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: _buildHijosList(family),
+                          child: _buildHijosList([
+                            ...family.householdChildren,
+                            ...family.assignedStudents,
+                          ]),
                         )
                       : FamilyGallery(idFamilia: family.id ?? 0),
                 ],
@@ -138,7 +217,7 @@ class _FamilyPageState extends State<FamiliyPage> {
     );
   }
 
-  Widget _buildEditButton(BuildContext context, int familyId) {
+  Widget _bottomEditProfile(int familyId) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -150,7 +229,9 @@ class _FamilyPageState extends State<FamiliyPage> {
             arguments: familyId,
           );
           if (result == true && mounted) {
-            context.read<FamilyController>().loadData();
+            setState(() {
+              _familyFuture = _fetchFamilyData();
+            });
           }
         },
         style: ElevatedButton.styleFrom(
@@ -168,6 +249,7 @@ class _FamilyPageState extends State<FamiliyPage> {
               SizedBox(width: 8),
               Text(
                 'Editar Perfil',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
@@ -215,21 +297,21 @@ class _FamilyPageState extends State<FamiliyPage> {
     );
   }
 
-  Widget _buildHijosList(Family family) {
-    final hijos = [...family.householdChildren, ...family.assignedStudents];
+  Widget _buildHijosList(List<FamilyMember> hijos) {
     if (hijos.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20.0),
-          child: Text('No hay hijos EDI registrados.'),
+          child: Text('No hay hijos EDI registrados en esta familia.'),
         ),
       );
     }
+
     return ListView.separated(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
       itemCount: hijos.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final hijo = hijos[index];
         return ProfileCard(
@@ -238,46 +320,90 @@ class _FamilyPageState extends State<FamiliyPage> {
           school: hijo.carrera,
           fechaNacimiento: hijo.fechaNacimiento,
           phoneNumber: hijo.telefono,
-          onTap: () {}, // Navegación a detalle alumno
-          onChat: () {}, // Iniciar chat privado
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              'student_detail',
+              arguments: hijo.idUsuario,
+            );
+          },
+          onChat: () => _startChat(hijo.idUsuario, hijo.fullName),
         );
       },
     );
   }
-
-  ImageProvider _getImageProvider(String? url) {
-    if (url != null && url.isNotEmpty) {
-      return NetworkImage('${ApiHttp.serverUrl}$url');
-    }
-    return const AssetImage('assets/img/familia-extensa-e1591818033557.jpg');
-  }
 }
 
-// ... (Incluye aquí las clases FamilyWidget, FamilyData y ProfileCard si no las tienes en archivos separados) ...
 class FamilyWidget extends StatelessWidget {
   final ImageProvider backgroundImage;
   final ImageProvider circleImage;
   final VoidCallback onTap;
+
   const FamilyWidget({
     super.key,
     required this.backgroundImage,
     required this.circleImage,
     required this.onTap,
   });
+
+  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Image(
-          image: backgroundImage,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: 200,
+        GestureDetector(
+          onTap: () => _openFullScreen(context, backgroundImage, 'coverTag'),
+          child: Hero(
+            tag: 'coverTag',
+            child: ClipRRect(
+              child: Image(
+                image: backgroundImage,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 200,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 200,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  );
+                },
+              ),
+            ),
+          ),
         ),
         Positioned(
           bottom: 10,
           left: 10,
-          child: CircleAvatar(radius: 50, backgroundImage: circleImage),
+          child: GestureDetector(
+            onTap: () => _openFullScreen(context, circleImage, 'profileTag'),
+            child: CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.white,
+              child: Hero(
+                tag: 'profileTag',
+                child: CircleAvatar(
+                  radius: 46,
+                  backgroundImage: circleImage,
+                  onBackgroundImageError: (exception, stackTrace) {},
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -285,7 +411,11 @@ class FamilyWidget extends StatelessWidget {
 }
 
 class FamilyData extends StatelessWidget {
-  final String familyName, numChildres, text, description;
+  final String familyName;
+  final String numChildres;
+  final String text;
+  final String description;
+
   const FamilyData({
     super.key,
     required this.familyName,
@@ -293,6 +423,7 @@ class FamilyData extends StatelessWidget {
     required this.text,
     required this.description,
   });
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -302,17 +433,38 @@ class FamilyData extends StatelessWidget {
           familyName,
           style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
         ),
-        Text("$numChildres $text"),
-        Text(description),
+        const SizedBox(height: 15),
+        Row(
+          children: [
+            const SizedBox(height: 10),
+            Text(
+              numChildres,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(width: 6),
+            Text(text, style: const TextStyle(fontSize: 16)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          description,
+          textAlign: TextAlign.justify,
+          style: const TextStyle(fontWeight: FontWeight.w400, fontSize: 16),
+        ),
       ],
     );
   }
 }
 
 class ProfileCard extends StatelessWidget {
-  final String imageUrl, name;
-  final String? school, fechaNacimiento, phoneNumber;
-  final VoidCallback? onTap, onChat;
+  final String imageUrl;
+  final String name;
+  final String? school;
+  final String? fechaNacimiento;
+  final String? phoneNumber;
+  final VoidCallback? onTap;
+  final VoidCallback? onChat;
+
   const ProfileCard({
     super.key,
     required this.imageUrl,
@@ -323,13 +475,93 @@ class ProfileCard extends StatelessWidget {
     this.onTap,
     this.onChat,
   });
+
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(backgroundImage: NetworkImage(imageUrl)),
-      title: Text(name),
-      subtitle: Text(school ?? ''),
+    return GestureDetector(
       onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color.fromRGBO(245, 189, 6, 0.452),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(backgroundImage: NetworkImage(imageUrl), radius: 30),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    school ?? 'Escuela no registrada',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                  ),
+                  if (phoneNumber != null)
+                    Text(
+                      'Tel: $phoneNumber',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                ],
+              ),
+            ),
+            if (onChat != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.chat_bubble,
+                  color: Color.fromRGBO(19, 67, 107, 1),
+                ),
+                onPressed: onChat,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FullScreenImagePage extends StatelessWidget {
+  final ImageProvider imageProvider;
+  final String heroTag;
+
+  const FullScreenImagePage({
+    super.key,
+    required this.imageProvider,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      extendBodyBehindAppBar: true,
+      body: Center(
+        child: Hero(
+          tag: heroTag,
+          child: InteractiveViewer(
+            panEnabled: true,
+            minScale: 0.5,
+            maxScale: 4.0,
+            child: Image(image: imageProvider, fit: BoxFit.contain),
+          ),
+        ),
+      ),
     );
   }
 }

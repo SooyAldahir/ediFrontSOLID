@@ -1,111 +1,153 @@
 import 'dart:io';
+import 'package:edi301/src/pages/Family/presentation/family_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:edi301/src/widgets/responsive_content.dart';
-import '../controllers/edit_controller.dart';
+import 'package:provider/provider.dart';
 
 class EditPage extends StatefulWidget {
-  final int familyId;
-  const EditPage({super.key, required this.familyId});
+  const EditPage({super.key});
 
   @override
   State<EditPage> createState() => _EditPageState();
 }
 
 class _EditPageState extends State<EditPage> {
+  final _picker = ImagePicker();
+  late TextEditingController _descripcionCtrl;
+  File? _selectedProfileImage;
+  File? _selectedCoverImage;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<EditFamilyController>().init(widget.familyId);
-    });
+    final family = context.read<FamilyProvider>().family;
+    _descripcionCtrl = TextEditingController(text: family?.descripcion ?? '');
   }
 
   @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<EditFamilyController>();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Editar Perfil'),
-        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-      ),
-      body: ResponsiveContent(
-        child: controller.isLoading && controller.descripcionCtrl.text.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  children: [
-                    _buildImagePicker(
-                      "Foto de perfil",
-                      controller.profileImage,
-                      () => controller.pickImage(true),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildImagePicker(
-                      "Foto de portada",
-                      controller.coverImage,
-                      () => controller.pickImage(false),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: controller.descripcionCtrl,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: "Descripción",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      onPressed: controller.isLoading
-                          ? null
-                          : () => _handleSave(context),
-                      child: controller.isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              "Guardar Cambios",
-                              style: TextStyle(color: Colors.white),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-      ),
-    );
+  void dispose() {
+    _descripcionCtrl.dispose();
+    super.dispose();
   }
 
-  Widget _buildImagePicker(String title, XFile? file, VoidCallback onTap) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        TextButton(onPressed: onTap, child: const Text("Editar")),
-      ],
+  Future<void> _pickImage(bool isProfile) async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
     );
+    if (pickedFile != null) {
+      setState(() {
+        if (isProfile) {
+          _selectedProfileImage = File(pickedFile.path);
+        } else {
+          _selectedCoverImage = File(pickedFile.path);
+        }
+      });
+    }
   }
 
-  void _handleSave(BuildContext context) async {
-    final controller = context.read<EditFamilyController>();
-    final success = await controller.saveChanges(widget.familyId);
+  Future<void> _saveChanges() async {
+    FocusScope.of(context).unfocus();
+
+    final success = await context.read<FamilyProvider>().updateFamilyData(
+      descripcion: _descripcionCtrl.text.trim(),
+      profileImage: _selectedProfileImage,
+      coverImage: _selectedCoverImage,
+    );
 
     if (!mounted) return;
 
     if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Cambios guardados con éxito!')),
+      );
+      Navigator.pop(context);
+    } else {
+      final error = context.read<FamilyProvider>().error;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("¡Guardado exitosamente!")));
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(controller.errorMessage ?? "Error")),
-      );
+      ).showSnackBar(SnackBar(content: Text(error ?? 'Error al guardar')));
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<FamilyProvider>();
+    final family = provider.family;
+
+    if (family == null)
+      return const Scaffold(body: Center(child: Text("Error: No hay datos")));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Editar Familia'),
+        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // FOTO PORTADA
+            GestureDetector(
+              onTap: () => _pickImage(false),
+              child: Container(
+                height: 150,
+                width: double.infinity,
+                color: Colors.grey[300],
+                child: _selectedCoverImage != null
+                    ? Image.file(_selectedCoverImage!, fit: BoxFit.cover)
+                    : (family.fotoPortadaUrl != null
+                          ? Image.network(
+                              family.fotoPortadaUrl!,
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(Icons.camera_alt)),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // FOTO PERFIL
+            GestureDetector(
+              onTap: () => _pickImage(true),
+              child: CircleAvatar(
+                radius: 60,
+                backgroundColor: Colors.grey[300],
+                backgroundImage: _selectedProfileImage != null
+                    ? FileImage(_selectedProfileImage!)
+                    : (family.fotoPerfilUrl != null
+                          ? NetworkImage(family.fotoPerfilUrl!) as ImageProvider
+                          : null),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            TextField(
+              controller: _descripcionCtrl,
+              decoration: const InputDecoration(labelText: 'Descripción'),
+              maxLines: 3,
+            ),
+
+            const SizedBox(height: 30),
+
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: provider.isLoading ? null : _saveChanges,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                ),
+                child: provider.isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        'Guardar',
+                        style: TextStyle(color: Colors.white),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

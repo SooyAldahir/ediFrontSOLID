@@ -32,9 +32,26 @@ class _FamilyGalleryState extends State<FamilyGallery> {
     }
   }
 
+  // ✅ CORRECCIÓN APLICADA AQUÍ
   String _getFullUrl(String rawUrl) {
     if (rawUrl.startsWith('http')) return rawUrl;
-    return '${ApiHttp.baseUrl}$rawUrl';
+
+    String path = rawUrl;
+
+    // 1. Quitamos el '/api' si viene de la base de datos
+    if (path.startsWith('/api/')) {
+      path = path.replaceFirst('/api', '');
+    } else if (path.startsWith('api/')) {
+      path = path.replaceFirst('api', '');
+    }
+
+    // 2. Aseguramos que empiece con /
+    if (!path.startsWith('/')) {
+      path = '/$path';
+    }
+
+    // 3. ¡IMPORTANTE! Usamos serverUrl (Sin /api), NO baseUrl
+    return '${ApiHttp.serverUrl}$path';
   }
 
   void _abrirVisor(int indexInicial) {
@@ -44,7 +61,7 @@ class _FamilyGalleryState extends State<FamilyGallery> {
         builder: (_) => _FullScreenViewer(
           fotos: _fotos,
           initialIndex: indexInicial,
-          baseUrl: ApiHttp.baseUrl,
+          // Ya no necesitamos pasar baseUrl, el visor usará su propia lógica
         ),
       ),
     );
@@ -56,7 +73,7 @@ class _FamilyGalleryState extends State<FamilyGallery> {
 
     if (_fotos.isEmpty) {
       return Container(
-        height: 0,
+        height: 150, // Le di un poco más de altura
         width: double.infinity,
         alignment: Alignment.center,
         child: Column(
@@ -111,12 +128,11 @@ class _FamilyGalleryState extends State<FamilyGallery> {
 class _FullScreenViewer extends StatefulWidget {
   final List<dynamic> fotos;
   final int initialIndex;
-  final String baseUrl;
 
   const _FullScreenViewer({
+    super.key,
     required this.fotos,
     required this.initialIndex,
-    required this.baseUrl,
   });
 
   @override
@@ -126,6 +142,25 @@ class _FullScreenViewer extends StatefulWidget {
 class _FullScreenViewerState extends State<_FullScreenViewer> {
   late PageController _pageController;
   late int _currentIndex;
+
+  // ✅ CORRECCIÓN TAMBIÉN EN EL VISOR
+  String _getFullUrl(String rawUrl) {
+    if (rawUrl.startsWith('http')) return rawUrl;
+
+    String path = rawUrl;
+    if (path.startsWith('/api/')) {
+      path = path.replaceFirst('/api', '');
+    } else if (path.startsWith('api/')) {
+      path = path.replaceFirst('api', '');
+    }
+
+    if (!path.startsWith('/')) {
+      path = '/$path';
+    }
+
+    // Usamos serverUrl
+    return '${ApiHttp.serverUrl}$path';
+  }
 
   @override
   void initState() {
@@ -152,8 +187,7 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
         onPageChanged: (index) => setState(() => _currentIndex = index),
         itemBuilder: (context, index) {
           final item = widget.fotos[index];
-          String url = item['url_imagen'];
-          if (!url.startsWith('http')) url = '${widget.baseUrl}$url';
+          final url = _getFullUrl(item['url_imagen'] ?? '');
 
           return Center(
             child: InteractiveViewer(

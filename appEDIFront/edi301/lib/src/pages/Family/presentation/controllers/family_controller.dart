@@ -1,40 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:edi301/models/family_model.dart';
-import '../../domain/family_repository.dart';
+import 'package:edi301/src/pages/Family/data/family_repository_impl.dart';
+import 'package:edi301/src/pages/Family/domain/family_repository.dart';
+import 'package:edi301/src/pages/Family/presentation/controllers/family_controller_solid.dart';
 
-class FamilyController extends ChangeNotifier {
-  final FamilyRepository _repository;
+class FamilyController {
+  late final FamilyControllerSolid _controller;
 
-  FamilyController(this._repository);
-
-  Family? family;
-  bool isLoading = false;
-  String? errorMessage;
-  String userRole = '';
-
-  bool get hasFamily => family != null;
-
-  Future<void> loadData() async {
-    isLoading = true;
-    errorMessage = null;
-    notifyListeners();
-
-    try {
-      family = await _repository.getCurrentUserFamily();
-      if (family == null) {
-        errorMessage = "No se pudo identificar la familia.";
-      }
-    } catch (e) {
-      errorMessage = "Error: $e";
-      family = null;
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
+  FamilyController({FamilyRepository? repository}) {
+    _controller = FamilyControllerSolid(repository ?? FamilyRepositoryImpl());
   }
 
-  void setUserRole(String role) {
-    userRole = role;
-    notifyListeners();
-  }
+  Future<int?> resolveFamilyId() => _controller.resolveFamilyId();
+
+  Future<String> loadUserRole() => _controller.loadUserRole();
+
+  Future<Family?> loadFamily() => _controller.loadFamily();
 }

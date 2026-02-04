@@ -1,93 +1,69 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:edi301/core/api_client_http.dart'; // Asegúrate que esta ruta sea la correcta a tu archivo
+
+import 'package:edi301/auth/token_storage.dart';
 import 'package:edi301/models/family_model.dart';
+import 'package:edi301/services/familia_api.dart';
+import 'package:edi301/services/users_api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../domain/family_repository.dart';
 
 class FamilyRepositoryImpl implements FamilyRepository {
-  // CORRECCIÓN: Usamos el nombre real de tu clase 'ApiHttp'
-  final ApiHttp apiClient;
+  final UsersApi _usersApi;
+  final FamiliaApi _familiaApi;
+  final TokenStorage _tokenStorage;
 
-  FamilyRepositoryImpl(this.apiClient);
+  FamilyRepositoryImpl({
+    UsersApi? usersApi,
+    FamiliaApi? familiaApi,
+    TokenStorage? tokenStorage,
+  }) : _usersApi = usersApi ?? UsersApi(),
+       _familiaApi = familiaApi ?? FamiliaApi(),
+       _tokenStorage = tokenStorage ?? TokenStorage();
 
   @override
-  Future<Family?> getFamilyById(int id) async {
+  Future<String> getUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr == null) return '';
+
     try {
-      print(
-        "🔍 Buscando familia con ID: $id en URL: /familias/$id",
-      ); // 👈 AGREGA ESTO
-
-      // CORRECCIÓN: Usamos getJson y decodificamos el body
-      final response = await apiClient.getJson('/familias/$id');
-
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
-        return Family.fromJson(decoded);
-      } else {
-        print('Error API: ${response.statusCode}');
-        return null;
+      final user = jsonDecode(userStr);
+      if (user is Map) {
+        return (user['nombre_rol'] ?? user['rol'] ?? '').toString();
       }
-    } catch (e) {
-      print('Error getFamilyById: $e');
-      return null;
+      return '';
+    } catch (_) {
+      return '';
     }
   }
 
   @override
-  Future<Family?> getCurrentUserFamily() async {
-    try {
-      final id = await _resolveFamilyId();
-      if (id != null && id > 0) {
-        return await getFamilyById(id);
-      }
-      return null;
-    } catch (e) {
-      print('Error getCurrentUserFamily: $e');
-      return null;
-    }
+  Future<int?> resolveFamilyId() async {
+    final cachedId = await _readFamilyIdFromSession();
+    if (cachedId != null) return cachedId;
+    return _fetchFamilyIdByDocument();
   }
 
-  @override
-  Future<void> updateDescripcion(int id, String descripcion) async {
-    // CORRECCIÓN: Usamos patchJson
-    await apiClient.patchJson(
-      '/familias/$id/descripcion',
-      data: {'descripcion': descripcion},
-    );
-  }
-
-  @override
-  Future<void> updateFotos(int id, File? perfil, File? portada) async {
-    // CORRECCIÓN: Usamos el método multipart de tu ApiHttp
-    // Nota: Adaptamos los archivos al formato que espera tu API
-    // Si tu ApiHttp espera una lista de MultipartFile, la creamos aquí.
-
-    // NOTA: Para implementar esto con tu ApiHttp actual, necesitarías importar 'package:http/http.dart' as http;
-    // Por ahora, lo dejo comentado para que no te marque error si no tienes el paquete http importado aquí.
-    print("Subiendo fotos para familia $id (Lógica pendiente de Multipart)");
-  }
-
-  // --- LÓGICA DE EXTRACCIÓN DE ID ---
-
-  Future<int?> _resolveFamilyId() async {
+  Future<int?> _readFamilyIdFromSession() async {
     final prefs = await SharedPreferences.getInstance();
     final rawUser = prefs.getString('user');
     if (rawUser == null) return null;
 
-    final dynamic decoded = jsonDecode(rawUser);
-
-    // 1. Buscar en local
-    int? id = _extractFamilyId(decoded);
-    if (id != null) return id;
-
-    // 2. Buscar por documento (Opcional, requiere implementar endpoint de búsqueda)
-    return null;
+    try {
+      final dynamic decoded = jsonDecode(rawUser);
+      return _extractFamilyId(decoded);
+    } catch (_) {
+      return null;
+    }
   }
 
   int? _extractFamilyId(dynamic data) {
     if (data == null) return null;
+
     if (data is Map) {
+      // buscar keys tipo id_familia, familia_id, etc.
       for (final entry in data.entries) {
         final key = entry.key.toString().toLowerCase();
         if (key.contains('familia') && key.contains('id')) {
@@ -95,7 +71,9 @@ class FamilyRepositoryImpl implements FamilyRepository {
           if (parsed != null) return parsed;
         }
       }
-      for (final value in data.values) {
+      // buscar anidado
+      for (final entry in data.entries) {
+        final value = entry.value;
         if (value is Map || value is List) {
           final nested = _extractFamilyId(value);
           if (nested != null) return nested;
@@ -115,5 +93,75 @@ class FamilyRepositoryImpl implements FamilyRepository {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  Future<int?> _fetchFamilyIdByDocument() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawUser = prefs.getString('user');
+      if (rawUser == null) return null;
+
+      final Map<String, dynamic> user = Map<String, dynamic>.from(
+        jsonDecode(rawUser) as Map,
+      );
+
+      final matricula = _asInt(user['matricula'] ?? user['Matricula']);
+      final numEmpleado = _asInt(user['numEmpleado'] ?? user['NumEmpleado']);
+      if (matricula == null && numEmpleado == null) return null;
+
+      final familias = await _usersApi.familiasByDocumento(
+        matricula: matricula,
+        numEmpleado: numEmpleado,
+      );
+      if (familias.isEmpty) return null;
+
+      return familias.first.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<Family?> getFamily(int familyId) async {
+    final token = await _tokenStorage.read();
+    final data = await _familiaApi.getById(familyId, authToken: token);
+    if (data == null) return null;
+    return Family.fromJson(data);
+  }
+
+  @override
+  Future<bool> updateFamily({
+    required int familyId,
+    String? descripcion,
+    File? profileImage,
+    File? coverImage,
+  }) async {
+    final token = await _tokenStorage.read();
+
+    bool changed = false;
+
+    if (descripcion != null) {
+      final desc = descripcion.trim();
+      if (desc.isNotEmpty) {
+        final ok = await _familiaApi.updateDescripcion(
+          familyId: familyId,
+          descripcion: desc,
+          authToken: token,
+        );
+        changed = changed || ok;
+      }
+    }
+
+    if (profileImage != null || coverImage != null) {
+      final ok = await _familiaApi.updateFamilyFotos(
+        familyId: familyId,
+        profileImage: profileImage,
+        coverImage: coverImage,
+        authToken: token,
+      );
+      changed = changed || ok;
+    }
+
+    return changed;
   }
 }

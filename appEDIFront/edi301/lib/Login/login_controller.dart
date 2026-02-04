@@ -42,7 +42,7 @@ class LoginController {
 
     try {
       final res = await _http.postJson(
-        '/api/auth/login',
+        '/auth/login',
         data: {'login': login, 'password': password},
       );
 
@@ -62,7 +62,7 @@ class LoginController {
         final idUsuario = data['id_usuario'] ?? data['IdUsuario'];
 
         if (idUsuario != null) {
-          final familiaRes = await _http.getJson('/api/usuarios/$idUsuario');
+          final familiaRes = await _http.getJson('/usuarios/$idUsuario');
           if (familiaRes.statusCode == 200) {
             final usuarioCompleto =
                 jsonDecode(familiaRes.body) as Map<String, dynamic>;

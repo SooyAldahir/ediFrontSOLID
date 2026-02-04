@@ -1,13 +1,8 @@
 import 'dart:io';
-// 👇 1. NUEVOS IMPORTS PARA PROVIDER Y TUS CLASES SOLID
-import 'package:provider/provider.dart';
-import 'package:edi301/core/api_client_http.dart';
-import 'package:edi301/src/pages/Family/data/family_repository_impl.dart';
-import 'package:edi301/src/pages/Family/presentation/controllers/family_controller.dart';
-import 'package:edi301/src/pages/Family/presentation/controllers/edit_controller.dart';
 
-// Imports existentes...
 import 'package:edi301/src/pages/Admin/birthdays/birthday_page.dart';
+import 'package:edi301/src/pages/Family/presentation/pages/edit_page.dart';
+import 'package:edi301/src/pages/Family/presentation/pages/familiy_page.dart';
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -19,11 +14,9 @@ import 'package:edi301/Login/login_page.dart';
 import 'package:edi301/Register/register_page.dart';
 import 'package:edi301/src/pages/Home/home_page.dart';
 import 'package:edi301/src/pages/News/news_page.dart';
-import 'package:edi301/src/pages/Family/presentation/pages/familiy_page.dart';
 import 'package:edi301/src/pages/Search/search_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
 import 'package:edi301/src/pages/Perfil/perfil_page.dart';
-import 'package:edi301/src/pages/Family/presentation/pages/edit_page.dart';
 import 'package:edi301/src/pages/Admin/add_family/add_family_page.dart';
 import 'package:edi301/src/pages/Admin/add_alumns/add_alumns_page.dart';
 import 'package:edi301/src/pages/Admin/get_family/get_family_page.dart';
@@ -36,24 +29,34 @@ import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Notificación en Background recibida: ${message.messageId}");
+  // print("Notificación en Background recibida: ${message.messageId}");
 }
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
 
+  // ✅ Si tu API usa self-signed cert / http raro, déjalo global desde el inicio
+  HttpOverrides.global = MyHttpOverrides();
+
+  await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   final notiService = NotificationService();
+  await _initNotifications(notiService);
+
+  final rutaInicial = await _resolveInitialRoute();
+
+  runApp(MyApp(initialRoute: rutaInicial));
+}
+
+Future<void> _initNotifications(NotificationService notiService) async {
   await notiService.init();
   await notiService.requestPermissions();
 
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('Mensaje recibido en foreground: ${message.notification?.title}');
+    // print('Mensaje recibido en foreground: ${message.notification?.title}');
 
-    RemoteNotification? notification = message.notification;
-
+    final notification = message.notification;
     if (notification != null) {
       notiService.showNotification(
         id: notification.hashCode,
@@ -63,44 +66,13 @@ void main() async {
       );
     }
   });
+}
 
+Future<String> _resolveInitialRoute() async {
   final prefs = await SharedPreferences.getInstance();
   final String? userJson = prefs.getString('user');
-  final String rutaInicial = (userJson != null && userJson.isNotEmpty)
-      ? 'home'
-      : 'login';
 
-  HttpOverrides.global = MyHttpOverrides();
-
-  // 👇 2. AQUÍ ENVOLVEMOS LA APP CON MULTIPROVIDER
-  runApp(
-    MultiProvider(
-      providers: [
-        // A. Inyectamos la clase de conexión API (Singleton)
-        Provider<ApiHttp>(create: (_) => ApiHttp()),
-
-        // B. Inyectamos el Repositorio (Depende de ApiHttp)
-        ProxyProvider<ApiHttp, FamilyRepositoryImpl>(
-          update: (_, apiHttp, __) => FamilyRepositoryImpl(apiHttp),
-        ),
-
-        // C. Inyectamos el FamilyController (Depende del Repositorio)
-        ChangeNotifierProxyProvider<FamilyRepositoryImpl, FamilyController>(
-          create: (context) =>
-              FamilyController(context.read<FamilyRepositoryImpl>()),
-          update: (_, repo, previous) => previous ?? FamilyController(repo),
-        ),
-
-        // D. Inyectamos el EditFamilyController (Depende del Repositorio)
-        ChangeNotifierProxyProvider<FamilyRepositoryImpl, EditFamilyController>(
-          create: (context) =>
-              EditFamilyController(context.read<FamilyRepositoryImpl>()),
-          update: (_, repo, previous) => previous ?? EditFamilyController(repo),
-        ),
-      ],
-      child: MyApp(initialRoute: rutaInicial),
-    ),
-  );
+  return (userJson != null && userJson.isNotEmpty) ? 'home' : 'login';
 }
 
 class MyHttpOverrides extends HttpOverrides {
@@ -132,11 +104,7 @@ class MyApp extends StatelessWidget {
         'register': (context) => const RegisterPage(),
         'home': (context) => const HomePage(),
         'family': (context) => const FamiliyPage(),
-        'edit': (context) {
-          final args = ModalRoute.of(context)?.settings.arguments;
-          final familyId = args is int ? args : 0;
-          return EditPage(familyId: familyId);
-        },
+        'edit': (context) => const EditPage(),
         'news': (context) => const NewsPage(),
         'search': (context) => const SearchPage(),
         'admin': (context) => const AdminPage(),
@@ -147,7 +115,13 @@ class MyApp extends StatelessWidget {
         'family_detail': (_) => const FamilyDetailPage(),
         'student_detail': (_) => const StudentDetailPage(),
         'agenda': (context) => const AgendaPage(),
-        'crear_evento': (context) => const CreateEventPage(),
+        'crear_evento': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final Map<String, dynamic>? evento = (args is Map<String, dynamic>)
+              ? args
+              : null;
+          return CreateEventPage(eventoExistente: evento);
+        },
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
         'notifications': (_) => const NotificationsPage(),
